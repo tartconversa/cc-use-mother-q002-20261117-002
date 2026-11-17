@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS releases (
 CREATE TABLE IF NOT EXISTS batches (
   batch_id TEXT PRIMARY KEY, manifest TEXT NOT NULL, next_line INTEGER NOT NULL,
   total_lines INTEGER NOT NULL, state TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS recalls (
+  recall_id TEXT PRIMARY KEY, lot_id TEXT NOT NULL REFERENCES lots(lot_id),
+  reason TEXT NOT NULL, notified_at TEXT NOT NULL,
+  event_id INTEGER NOT NULL REFERENCES events(id),
+  state TEXT NOT NULL DEFAULT 'active',
+  revoked_at TEXT, revoke_reason TEXT,
+  revoke_event_id INTEGER REFERENCES events(id));
+CREATE INDEX IF NOT EXISTS ix_recalls_lot ON recalls(lot_id, state);
+CREATE TABLE IF NOT EXISTS recall_links (
+  recall_id TEXT NOT NULL REFERENCES recalls(recall_id),
+  job_id TEXT NOT NULL REFERENCES jobs(job_id),
+  quantity INTEGER NOT NULL CHECK(quantity>0),
+  job_status TEXT NOT NULL, PRIMARY KEY(recall_id, job_id));
 """
 
 

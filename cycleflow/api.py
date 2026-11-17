@@ -105,6 +105,18 @@ def create_app(db_path=None):
     def exposure(product: str, window_start: str, window_end: str):
         return service.supplier_exposure(product, window_start, window_end)
 
+    @app.get("/recalls")
+    def recalls(product: str | None = None):
+        return {"recalls": service.recall_list(product)}
+
+    @app.get("/recalls/rollup")
+    def recall_rollup(product: str | None = None):
+        return service.recall_rollup(product)
+
+    @app.get("/recalls/{recall_id}")
+    def recall(recall_id: str):
+        return service.recall_impact(recall_id)
+
     @app.get("/tests/{test_id}")
     def test(test_id: str):
         return service.get_test(test_id)

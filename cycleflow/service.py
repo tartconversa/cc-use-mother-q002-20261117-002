@@ -8,6 +8,7 @@ from .execution import ExecutionRules
 from .inventory import InventoryRules
 from .ledger import EventLedger
 from .measure import MeasurementRules
+from .recall import RecallDesk
 from .snapshot import ReportShelf
 from .storage import Store
 from .throughput import ThroughputView
@@ -23,6 +24,7 @@ class CycleService:
         self.audit_engine = IntegrityAudit(self.store)
         self.operations = OperationsView(self.store)
         self.throughput = ThroughputView(self.store)
+        self.recalls = RecallDesk(self.store)
 
     def ingest(self, event):
         return self.ledger.ingest(event)
@@ -66,6 +68,15 @@ class CycleService:
 
     def get_event(self, event_id):
         return self.ledger.get(event_id)
+
+    def recall_list(self, product=None):
+        return self.recalls.list(product)
+
+    def recall_impact(self, recall_id):
+        return self.recalls.impact(recall_id)
+
+    def recall_rollup(self, product=None):
+        return self.recalls.rollup(product)
 
     def get_lineage(self, event_id):
         return self.ledger.lineage(event_id)

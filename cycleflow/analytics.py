@@ -51,11 +51,13 @@ class CycleAnalytics:
                     lots[job_id].append(dict(row))
             events = [dict(row) for row in db.execute(
                 "SELECT id,kind,state,error_code,occurred_at,payload FROM events WHERE state!='accepted' ORDER BY id")]
+            recalled = {row["lot_id"]: row["recall_id"] for row in db.execute(
+                "SELECT recall_id,lot_id FROM recalls WHERE state='active'")}
             head = db.execute("SELECT COALESCE(MAX(id),0) FROM events").fetchone()[0]
             revisions = self._revisions(jobs, steps, tests, lots)
             job_details = [self._job_detail(job, steps[job["job_id"]], tests[job["job_id"]],
                                             lots[job["job_id"]]) for job in jobs]
-            quality = self._quality(jobs, steps, tests, events, design_rows, start, end)
+            quality = self._quality(jobs, steps, tests, lots, events, design_rows, start, end, recalled)
             summary = self._summary(jobs, tests, job_details)
             report = {"product": product, "window_start": start, "window_end": end,
                       "source_head": head, "designs": design_rows, "summary": summary,
@@ -126,7 +128,7 @@ class CycleAnalytics:
                            "supplier_units": dict(sorted(group["suppliers"].items()))})
         return result
 
-    def _quality(self, jobs, steps, tests, events, designs, start, end):
+    def _quality(self, jobs, steps, tests, lots, events, designs, start, end, recalled):
         issues = []
         for job in jobs:
             job_id = job["job_id"]
@@ -141,6 +143,10 @@ class CycleAnalytics:
             for step in steps[job_id]:
                 if step["completed_at"] is None:
                     issues.append({"code": "open_stage", "subject": job_id + "/" + step["stage"]})
+            for lot in lots[job_id]:
+                if lot["lot_id"] in recalled:
+                    issues.append({"code": "recalled_lot", "subject": job_id,
+                                   "lot_id": lot["lot_id"], "recall_id": recalled[lot["lot_id"]]})
         for event in events:
             if start <= event["occurred_at"] < end:
                 issues.append({"code": "unresolved_event", "subject": str(event["id"]),

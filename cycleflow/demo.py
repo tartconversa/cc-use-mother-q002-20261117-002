@@ -53,11 +53,30 @@ def run():
         assert report["quality"]["publishable"]
         frozen = service.publish("jan-demo", "robot-arm", START, END, report["fingerprint"])
         assert frozen["report"]["summary"]["pass_rate"] == "0.75"
+        notice = service.ingest(event(13, "recall.notify", 40, {"recall_id": "RC1", "lot_id": "M1",
+                                                                "reason": "supplier batch contamination"}))
+        assert notice["state"] == "accepted"
+        impact = service.recall_impact("RC1")
+        assert impact["quantities"]["consumed_units"] == 8
+        assert impact["jobs"][0]["category"] == "consumed"
+        assert impact["frozen_reports"][0]["release_id"] == "jan-demo"
+        assert impact["frozen_reports"][0]["current_differs"]
+        blocked = service.report("robot-arm", START, END)
+        assert not blocked["quality"]["publishable"]
+        assert service.get_release("jan-demo")["fingerprint"] == frozen["fingerprint"]
+        revoked = service.ingest(event(14, "recall.revoke", 50, {"recall_id": "RC1",
+                                                                 "reason": "supplier narrowed scope"}))
+        assert revoked["state"] == "accepted"
+        assert service.report("robot-arm", START, END)["quality"]["publishable"]
         audit = IntegrityAudit(service.store).run("robot-arm")
         assert audit["ok"], audit
         return {"batch": {"first_cursor": first["next_line"], "complete": rest["completed"]},
                 "report": report["summary"], "quality": report["quality"],
-                "release_id": frozen["release_id"], "audit": audit}
+                "release_id": frozen["release_id"],
+                "recall": {"recall_id": "RC1", "state": service.recall_impact("RC1")["state"],
+                           "consumed_units": impact["quantities"]["consumed_units"],
+                           "implicated_releases": [item["release_id"] for item in impact["frozen_reports"]]},
+                "audit": audit}
 
 
 def main():

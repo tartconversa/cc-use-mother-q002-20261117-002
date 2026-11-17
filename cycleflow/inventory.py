@@ -37,11 +37,18 @@ class InventoryRules:
             "SELECT COALESCE(SUM(quantity),0) FROM reservations WHERE lot_id=?", (lot_id,)).fetchone()[0]
         result["available"] = result["quantity"] - result["reserved"]
         result["quarantined"] = bool(result["quarantined"])
+        recall = self.db.execute(
+            "SELECT recall_id FROM recalls WHERE lot_id=? AND state='active' ORDER BY notified_at,recall_id LIMIT 1",
+            (lot_id,)).fetchone()
+        result["active_recall_id"] = recall["recall_id"] if recall else None
+        result["recalled"] = recall is not None
         return result
 
     def choose(self, part, required, at):
         candidates = self.db.execute(
-            "SELECT lot_id FROM lots WHERE part=? AND received_at<=? AND quarantined=0 ORDER BY received_at,lot_id",
+            "SELECT lot_id FROM lots WHERE part=? AND received_at<=? AND quarantined=0"
+            " AND lot_id NOT IN (SELECT lot_id FROM recalls WHERE state='active')"
+            " ORDER BY received_at,lot_id",
             (part, at)).fetchall()
         allocations = []
         remaining = required

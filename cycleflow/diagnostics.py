@@ -25,7 +25,7 @@ class OperationsView:
             possible = []
             for part, per_unit in sorted(design["parts"].items()):
                 lots = [lot for lot in inventory.availability(part)
-                        if lot["received_at"] <= at and not lot["quarantined"]]
+                        if lot["received_at"] <= at and not lot["quarantined"] and not lot["recalled"]]
                 available = sum(lot["available"] for lot in lots)
                 maximum = available // per_unit
                 possible.append(maximum)

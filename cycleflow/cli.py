@@ -40,6 +40,12 @@ def parser():
     publish.add_argument("fingerprint")
     release = sub.add_parser("release")
     release.add_argument("release_id")
+    recalls = sub.add_parser("recalls")
+    recalls.add_argument("--product")
+    recall = sub.add_parser("recall")
+    recall.add_argument("recall_id")
+    rollup = sub.add_parser("recall-rollup")
+    rollup.add_argument("--product")
     return root
 
 
@@ -71,6 +77,12 @@ def main(argv=None):
             result = service.publish(args.release_id, args.product, args.start, args.end, args.fingerprint)
         elif args.command == "release":
             result = service.get_release(args.release_id)
+        elif args.command == "recalls":
+            result = {"recalls": service.recall_list(args.product)}
+        elif args.command == "recall":
+            result = service.recall_impact(args.recall_id)
+        elif args.command == "recall-rollup":
+            result = service.recall_rollup(args.product)
         else:
             raise AssertionError(args.command)
     except (DomainError, OSError, ValueError, json.JSONDecodeError) as exc:

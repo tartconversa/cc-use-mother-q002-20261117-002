@@ -23,6 +23,7 @@ class IntegrityAudit:
             findings.extend(self._job_checks(db, product))
             findings.extend(self._test_checks(db, product))
             findings.extend(self._release_checks(db, product))
+            findings.extend(self._recall_checks(db, product))
             findings.sort(key=lambda item: (item["code"], item["subject"]))
             return {"product": product, "checked_event_head": db.execute(
                 "SELECT COALESCE(MAX(id),0) FROM events").fetchone()[0],
@@ -144,6 +145,29 @@ class IntegrityAudit:
                 findings.append(self._issue("release_fingerprint", release["release_id"]))
             if not report.get("quality", {}).get("publishable"):
                 findings.append(self._issue("release_quality", release["release_id"]))
+        return findings
+
+    def _recall_checks(self, db, product):
+        findings = []
+        sql = ("SELECT r.* FROM recalls r" +
+               (" WHERE r.recall_id IN (SELECT rl.recall_id FROM recall_links rl"
+                " JOIN jobs j ON j.job_id=rl.job_id JOIN designs d ON d.design_id=j.design_id"
+                " WHERE d.product=?)" if product else "") + " ORDER BY r.recall_id")
+        for recall in db.execute(sql, (product,) if product else ()):
+            subject = recall["recall_id"]
+            if recall["state"] not in ("active", "revoked"):
+                findings.append(self._issue("recall_state", subject))
+            if recall["state"] == "revoked" and not recall["revoked_at"]:
+                findings.append(self._issue("recall_revocation_incomplete", subject))
+            if recall["state"] == "active" and recall["revoked_at"]:
+                findings.append(self._issue("recall_state_conflict", subject))
+            if recall["revoked_at"] and recall["revoked_at"] < recall["notified_at"]:
+                findings.append(self._issue("recall_time_order", subject))
+            bad_links = db.execute(
+                "SELECT COUNT(*) FROM recall_links WHERE recall_id=? AND quantity<=0",
+                (subject,)).fetchone()[0]
+            if bad_links:
+                findings.append(self._issue("recall_link_quantity", subject))
         return findings
 
     @staticmethod
